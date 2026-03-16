@@ -1,0 +1,140 @@
+# Executa testes unitários e de integração apenas dos projetos afetados pela PR.
+# Roda somente em Pull Requests cuja base é a branch develop.
+# Testes unitários e de integração rodam em jobs paralelos para melhor tempo total.
+name: Run affected project tests
+
+on:
+  pull_request:
+    branches: [develop]
+
+jobs:
+  detect:
+    name: Detect affected projects
+    runs-on: ubuntu-latest
+    outputs:
+      unit_projects_json: ${{ steps.affected.outputs.unit_projects_json }}
+      integration_projects_json: ${{ steps.affected.outputs.integration_projects_json }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Define API projects (single source of truth)
+        id: api_list
+        run: |
+          # Único lugar para declarar as APIs - adicione uma linha no case por API (convenção: Pipeline.<Nome>)
+          case "list" in
+            list)
+              echo "PrimeiraAPI"
+              echo "SegundaAPI"
+              # echo "TerceiraAPI"
+              ;;
+          esac > api_list.txt
+          echo "Lista de APIs consideradas:"
+          cat api_list.txt
+
+      - name: Get changed files
+        id: changed-files
+        run: |
+          CHANGED=$(git diff --name-only HEAD^1 HEAD 2>/dev/null || git diff --name-only origin/develop...HEAD 2>/dev/null)
+          echo "changed<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "Arquivos alterados na PR:"
+          echo "$CHANGED"
+
+      - name: Detect affected APIs and build test project lists
+        id: affected
+        run: |
+          CHANGED="${{ steps.changed-files.outputs.changed }}"
+          AFFECTED_APIS=""
+
+          while IFS= read -r api; do
+            [[ -z "$api" ]] && continue
+            # Convenção: Pipeline.<Api>/, Tests/Unit/Pipeline.<Api>.UnitTests/, Tests/Integration/Pipeline.<Api>.IntegrationTests/
+            while IFS= read -r file; do
+              [[ -z "$file" ]] && continue
+              if [[ "$file" == Pipeline.${api}/* ]] \
+                 || [[ "$file" == Tests/Unit/Pipeline.${api}.UnitTests/* ]] \
+                 || [[ "$file" == Tests/Integration/Pipeline.${api}.IntegrationTests/* ]]; then
+                AFFECTED_APIS="${AFFECTED_APIS}${api} "
+                break
+              fi
+            done <<< "$CHANGED"
+          done < api_list.txt
+
+          UNIT_PROJECTS=""
+          INTEGRATION_PROJECTS=""
+          for api in $(echo "$AFFECTED_APIS" | tr ' ' '\n' | sort -u); do
+            [[ -z "$api" ]] && continue
+            UNIT_PROJECTS="${UNIT_PROJECTS}Tests/Unit/Pipeline.${api}.UnitTests/Pipeline.${api}.UnitTests.csproj "
+            INTEGRATION_PROJECTS="${INTEGRATION_PROJECTS}Tests/Integration/Pipeline.${api}.IntegrationTests/Pipeline.${api}.IntegrationTests.csproj "
+          done
+
+          # JSON arrays para matrix (e vazio quando não houver projetos)
+          build_json() {
+            local first=1
+            local json="["
+            for p in $1; do
+              [[ -z "$p" ]] && continue
+              [[ -f "$p" ]] || continue
+              [[ $first -eq 1 ]] || json="$json,"
+              json="$json\"$p\""
+              first=0
+            done
+            echo "${json}]"
+          }
+          UNIT_JSON=$(build_json "$UNIT_PROJECTS")
+          INTEGRATION_JSON=$(build_json "$INTEGRATION_PROJECTS")
+
+          echo "unit_projects_json=$UNIT_JSON" >> "$GITHUB_OUTPUT"
+          echo "integration_projects_json=$INTEGRATION_JSON" >> "$GITHUB_OUTPUT"
+
+          echo "APIs afetadas: $(echo $AFFECTED_APIS | tr ' ' '\n' | sort -u | tr '\n' ' ')"
+          echo "Projetos de teste unitário: $UNIT_PROJECTS"
+          echo "Projetos de teste de integração: $INTEGRATION_PROJECTS"
+
+  unit-tests:
+    name: Unit tests (${{ matrix.project }})
+    needs: detect
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJson(needs.detect.outputs.unit_projects_json) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build and run unit tests
+        run: |
+          dotnet build "${{ matrix.project }}" --configuration Release --no-incremental
+          dotnet test "${{ matrix.project }}" --no-build --verbosity normal --configuration Release
+
+  integration-tests:
+    name: Integration tests (${{ matrix.project }})
+    needs: detect
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJson(needs.detect.outputs.integration_projects_json) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build and run integration tests
+        run: |
+          dotnet build "${{ matrix.project }}" --configuration Release --no-incremental
+          dotnet test "${{ matrix.project }}" --no-build --verbosity normal --configuration Release

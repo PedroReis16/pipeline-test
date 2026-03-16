@@ -127,16 +127,16 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      #   - name: Login to OCIR
-      #     shell: bash
-      #     run: |
-      #       REGION="${{ secrets.OCI_REGION }}"
-      #       NS="${{ secrets.OCI_TENANCY_NAMESPACE }}"
-      #       USER="${{ secrets.OCI_USERNAME }}"
-      #       TOKEN="${{ secrets.OCI_AUTH_TOKEN }}"
-      #       echo "$TOKEN" | docker login "$REGION.ocir.io" \
-      #         --username "$USER" \
-      #         --password-stdin
+      - name: Login to OCIR
+        shell: bash
+        run: |
+          REGION="${{ secrets.OCI_REGION }}"
+          NS="${{ secrets.OCI_TENANCY_NAMESPACE }}"
+          USER="${{ secrets.OCI_USERNAME }}"
+          TOKEN="${{ secrets.OCI_AUTH_TOKEN }}"
+          echo "$TOKEN" | docker login "$REGION.ocir.io" \
+            --username "$USER" \
+            --password-stdin
 
       - name: Build Docker Image
         shell: bash
@@ -148,16 +148,14 @@ jobs:
           IMAGE_FULL="${{ env.IMAGE_NAME }}:dev"
           docker build -t "$IMAGE_FULL" -f "${{ env.DOCKERFILE_PATH }}" .
 
-    #   - name: Push Docker Image to Oracle
-    #     shell: bash
-    #     run: |
-    #       REGION="${{ secrets.OCI_REGION }}"
-    #       NS="${{ secrets.OCI_TENANCY_NAMESPACE }}"
-    #       VERSION="${{ env.API_VERSION }}"
+      - name: Push Docker Image to Oracle
+        shell: bash
+        run: |
+          REGION="${{ secrets.OCI_REGION }}"
+          NS="${{ secrets.OCI_TENANCY_NAMESPACE }}"
 
-    #       IMAGE_BASE="$REGION.ocir.io/$NS/${{ env.IMAGE_NAME }}"
-    #       docker push "$IMAGE_BASE:$VERSION"
-    #       docker push "$IMAGE_BASE:latest"
+          IMAGE_BASE="$REGION.ocir.io/$NS/${{ env.IMAGE_NAME }}"
+          docker push "$IMAGE_BASE:dev"
 
   repository_tag:
     name: Create homolog tag
