@@ -21,10 +21,10 @@ jobs:
     name: Environment Validation
     runs-on: ubuntu-latest
     outputs:
-      dotnet_project: ${{ env.DOTNET_PROJECT }}
-      service_name: ${{ env.SERVICE_NAME }}
-      dockerfile_path: ${{ env.DOCKERFILE_PATH }}
-      image_name: ${{ env.IMAGE_NAME }}
+      dotnet_project: ${{ steps.deployment_vars.outputs.dotnet_project }}
+      service_name: ${{ steps.deployment_vars.outputs.service_name }}
+      dockerfile_path: ${{ steps.deployment_vars.outputs.dockerfile_path }}
+      image_name: ${{ steps.deployment_vars.outputs.image_name }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -37,6 +37,8 @@ jobs:
           fi
 
       - name: Setup Deployment Variables
+        id: deployment_vars
+        shell: bash
         run: |
           SLUG="${{ inputs.api_selection }}"
 
@@ -47,10 +49,20 @@ jobs:
             "Segunda API")     PROJ="SegundaAPI";     SVC="segunda-api" ;;
           esac
 
-          echo "DOTNET_PROJECT=Pipeline.$PROJ" >> $GITHUB_ENV
-          echo "DOCKERFILE_PATH=./docker-compose/dockerfiles/$SVC.dockerfile" >> $GITHUB_ENV
-          echo "IMAGE_NAME=pipeline/$SVC-api" >> $GITHUB_ENV
-          echo "SERVICE_NAME=$SVC" >> $GITHUB_ENV
+          DOTNET_PROJECT="Pipeline.$PROJ"
+          DOCKERFILE_PATH="./docker-compose/dockerfiles/$SVC.dockerfile"
+          IMAGE_NAME="pipeline/$SVC-api"
+          SERVICE_NAME="$SVC"
+
+          echo "DOTNET_PROJECT=$DOTNET_PROJECT" >> "$GITHUB_ENV"
+          echo "DOCKERFILE_PATH=$DOCKERFILE_PATH" >> "$GITHUB_ENV"
+          echo "IMAGE_NAME=$IMAGE_NAME" >> "$GITHUB_ENV"
+          echo "SERVICE_NAME=$SERVICE_NAME" >> "$GITHUB_ENV"
+
+          echo "dotnet_project=$DOTNET_PROJECT" >> "$GITHUB_OUTPUT"
+          echo "dockerfile_path=$DOCKERFILE_PATH" >> "$GITHUB_OUTPUT"
+          echo "image_name=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
+          echo "service_name=$SERVICE_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Validate Changelog text
         shell: bash
@@ -85,17 +97,27 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        shell: bash
+        run: |
+          dotnet restore
+
       - name: Build project
         shell: bash
         run: |
-          dotnet build ./${{ env.DOTNET_PROJECT}}/${{ env.DOTNET_PROJECT}}.csproj -c Release
+          dotnet build "./${DOTNET_PROJECT}/${DOTNET_PROJECT}.csproj" -c Release --no-restore
 
       - name: Unit Tests
         shell: bash
         run: |
-          dotnet test ./Tests/Unit/${{ env.DOTNET_PROJECT}}.UnitTests/${{ env.DOTNET_PROJECT}}.UnitTests.csproj -c Release --no-build
+          dotnet test "./Tests/Unit/${DOTNET_PROJECT}.UnitTests/${DOTNET_PROJECT}.UnitTests.csproj" -c Release --no-build --no-restore
 
       - name: Integration Tests
         shell: bash
         run: |
-          dotnet test ./Tests/Integration/${{ env.DOTNET_PROJECT}}.IntegrationTests/${{ env.DOTNET_PROJECT}}.IntegrationTests.csproj -c Release --no-build
+          dotnet test "./Tests/Integration/${DOTNET_PROJECT}.IntegrationTests/${DOTNET_PROJECT}.IntegrationTests.csproj" -c Release --no-build --no-restore
