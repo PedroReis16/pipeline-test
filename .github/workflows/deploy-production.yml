@@ -2,18 +2,19 @@ name: Production Deploy
 
 on:
   workflow_dispatch:
-  inputs:
-    api_selection:
-      description: "Selecione a API"
-      required: true
-      type: choice
-      options:
-        - Recebimento API
-        - Envio API
-    api_version:
-      description: "Versão da imagem (ex: 1.0.0)"
-      required: true
-      type: string
+    inputs:
+        api_selection:
+            description: "Selecione a API"
+            required: true
+            type: choice
+            options:
+                - Primeira API
+                - Segunda API
+                
+        api_version:
+            description: "Versão da imagem (ex: 1.0.0)"
+            required: true
+            type: string
 
 jobs:
   validate_environment:
