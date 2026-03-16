@@ -88,14 +88,14 @@ jobs:
       - name: Build project
         shell: bash
         run: |
-          dotnet build ./${{ env.DOTNET_PROJECT}}/${{ env.DOTNET_PROJECT}}.csproj
+          dotnet build ./${{ env.DOTNET_PROJECT}}/${{ env.DOTNET_PROJECT}}.csproj -c Release
 
       - name: Unit Tests
         shell: bash
         run: |
-          dotnet test ./Tests/Unit/${{ env.DOTNET_PROJECT}}.UnitTests/ --no-build
+          dotnet test ./Tests/Unit/${{ env.DOTNET_PROJECT}}.UnitTests/${{ env.DOTNET_PROJECT}}.UnitTests.csproj -c Release --no-build
 
       - name: Integration Tests
         shell: bash
         run: |
-          dotnet test ./Tests/Integration/${{ env.DOTNET_PROJECT}}.IntegrationTests/ --no-build
+          dotnet test ./Tests/Integration/${{ env.DOTNET_PROJECT}}.IntegrationTests/${{ env.DOTNET_PROJECT}}.IntegrationTests.csproj -c Release --no-build
