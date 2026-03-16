@@ -1,5 +1,10 @@
 name: Production Deploy
 
+# Nome da execução da pipeline seguindo o padrão service_name@version.
+# As opções do input já usam o slug (primeira-api, segunda-api, ...),
+# então podemos usar direto no run-name sem if/else.
+run-name: "${{ inputs.api_selection }} - Build: v${{ inputs.api_version }}"
+
 on:
   workflow_dispatch:
     inputs:
