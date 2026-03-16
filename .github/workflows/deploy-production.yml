@@ -55,10 +55,8 @@ jobs:
       - name: Validate Changelog text
         shell: bash
         run: |
-          version="${{ github.ref_name }}"
-          if [[ $version == v* ]]; then
-            version="${version:1}"
-          fi
+          version="${{ inputs.api_version }}"
+          
 
           changelog_path="$DOTNET_PROJECT/CHANGELOG.md"
 
