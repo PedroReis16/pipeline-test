@@ -87,6 +87,19 @@ jobs:
             exit 1
           fi
 
+      - name: Validate release tag is unique
+        shell: bash
+        run: |
+          SERVICE_NAME="${{ steps.deployment_vars.outputs.service_name }}"
+          VERSION="${{ inputs.api_version }}"
+          TAG_NAME="${SERVICE_NAME}@${VERSION}"
+          echo "Verificando se a tag '$TAG_NAME' já existe no repositório..."
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
+            echo "✗ A tag '$TAG_NAME' já existe no repositório. Use uma versão diferente."
+            exit 1
+          fi
+          echo "✓ Tag '$TAG_NAME' está disponível"
+
   project_build:
     name: Project compilation and tests
     needs: validate_environment
@@ -208,7 +221,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ inputs.api_version }}
+          tag_name: ${{ needs.validate_environment.outputs.service_name }}@${{ inputs.api_version }}
           body_path: ./RELEASE_NOTES.md
           draft: false
           generate_release_notes: false
