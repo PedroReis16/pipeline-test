@@ -19,9 +19,21 @@ on:
 jobs:
   validate_environment:
     runs-on: [self-hosted, ubuntu-latest]
+    outputs:
+      dotnet_project: ${{ env.DOTNET_PROJECT }}
+      service_name: ${{ env.SERVICE_NAME }}
+      dockerfile_path: ${{ env.DOCKERFILE_PATH }}
+      image_name: ${{ env.IMAGE_NAME }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Validate deployments details
+        run: |
+          if [[ ${{ github.ref_name }} != "master" ]]; then
+            echo "Esse workflow deve ser executado apenas na branch master"
+            exit 1
+          fi
 
       - name: Setup Environment Variables
         run: |
@@ -63,3 +75,27 @@ jobs:
             echo "Por favor, adicione a versão ao CHANGELOG do projeto antes de fazer o release"
             exit 1
           fi
+
+  project_tests:
+      needs: validate_environment
+      runs-on: [self-hosted, ubuntu-latest]
+      env:
+        DOTNET_PROJECT: ${{ needs.validate_environment.outputs.dotnet_project }}
+      steps:
+        - name: Checkout Code
+          uses: actions/checkout@v4
+
+        - name: Build project
+          shell: bash
+          run: |
+            dotnet build ${{ env.DOTNET_PROJECT}}.csproj
+
+        - name: Unit Tests
+          shell: bash
+          run: |
+            dotnet test ${{ env.DOTNET_PROJECT}}.UnitTests --no-build
+
+        - name: Integration Tests
+          shell: bash
+          run: |
+            dotnet test ${{ env.DOTNET_PROJECT}}.IntegrationTests --no-build
