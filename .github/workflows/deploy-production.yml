@@ -126,12 +126,92 @@ jobs:
     name: Deploy to Production
     needs: project_build
     runs-on: ubuntu-latest
+    env:
+      DOTNET_PROJECT: ${{ needs.validate_environment.outputs.dotnet_project }}
+      IMAGE_NAME: ${{ needs.validate_environment.outputs.image_name }}
+      DOCKERFILE_PATH: ${{ needs.validate_environment.outputs.dockerfile_path }}
+      API_VERSION: ${{ inputs.api_version }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Login to OCIR
+        shell: bash
+        run: |
+          REGION="${{ secrets.OCI_REGION }}"
+          NS="${{ secrets.OCI_TENANCY_NAMESPACE }}"
+          USER="${{ secrets.OCI_USERNAME }}"
+          TOKEN="${{ secrets.OCI_AUTH_TOKEN }}"
+          echo "$TOKEN" | docker login "$REGION.ocir.io" \
+            --username "$USER" \
+            --password-stdin
+    
       - name: Build Docker Image
         shell: bash
         run: |
-          docker build -t ${{ needs.validate_environment.outputs.image_name }}:${{ inputs.api_version }} -f ${{ needs.validate_environment.outputs.dockerfile_path }} .
-      
+          REGION="${{ secrets.OCI_REGION }}"
+          NS="${{ secrets.OCI_TENANCY_NAMESPACE }}"
+          VERSION="${{ env.API_VERSION }}"
+
+          # Tag com a versão do input (ex: 1.0.0)
+          IMAGE_FULL="$REGION.ocir.io/$NS/${{ env.IMAGE_NAME }}:$VERSION:${GITHUB_SHA:0:7}"
+          docker build -t "$IMAGE_FULL" -f "${{ env.DOCKERFILE_PATH }}" .
+
+
+    #   - name: Push Docker Image to Oracle
+    #     shell: bash
+    #     run: |
+    #       REGION="${{ secrets.OCI_REGION }}"
+    #       NS="${{ secrets.OCI_TENANCY_NAMESPACE }}"
+    #       VERSION="${{ env.API_VERSION }}"
+
+    #       IMAGE_BASE="$REGION.ocir.io/$NS/${{ env.IMAGE_NAME }}"
+    #       docker push "$IMAGE_BASE:$VERSION"
+    #       docker push "$IMAGE_BASE:latest"
+
+  repository_release:
+    name: Release Repository
+    runs-on: ubuntu-latest
+    needs: [deploy_production, validate_environment]
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Extract changelog for version
+        id: release_notes
+        shell: bash
+        run: |
+          version="${{ inputs.api_version }}"
+          changelog_path="${{ needs.validate_environment.outputs.dotnet_project }}/CHANGELOG.md"
+
+          echo "Extraindo changelog para versão: $version de $changelog_path"
+
+          if [ ! -f "$changelog_path" ]; then
+            echo "✗ Arquivo $changelog_path não encontrado"
+            exit 1
+          fi
+
+          # Extrair do cabeçalho da versão até antes da próxima versão
+          awk "/^# \*\*\[$version\]/{p=1; print; next} p{if(/^# \*\*\[/) exit; print}" "$changelog_path" > RELEASE_NOTES.md
+
+          if [ ! -s RELEASE_NOTES.md ]; then
+            echo "✗ Não foi possível extrair changelog para versão $version"
+            exit 1
+          fi
+
+          echo "✓ Changelog extraído:"
+          echo ""
+          cat RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.api_version }}
+          body_path: ./RELEASE_NOTES.md
+          draft: false
+          generate_release_notes: false
+          skip_duplicate: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
