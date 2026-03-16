@@ -88,7 +88,7 @@ jobs:
       - name: Build project
         shell: bash
         run: |
-          dotnet build ./${{ env.DOTNET_PROJECT}}/${{ env.DOTNET_PROJECT}}.csproj
+          dotnet build ./Pipeline.${{ env.DOTNET_PROJECT}}/Pipeline.${{ env.DOTNET_PROJECT}}.csproj
 
       - name: Unit Tests
         shell: bash
