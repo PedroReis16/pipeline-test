@@ -10,7 +10,7 @@ on:
             options:
                 - Primeira API
                 - Segunda API
-                
+
         api_version:
             description: "Versão da imagem (ex: 1.0.0)"
             required: true
