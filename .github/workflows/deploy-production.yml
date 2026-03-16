@@ -3,22 +3,23 @@ name: Production Deploy
 on:
   workflow_dispatch:
     inputs:
-        api_selection:
-            description: "Selecione a API"
-            required: true
-            type: choice
-            options:
-                - Primeira API
-                - Segunda API
+      api_selection:
+        description: "Selecione a API"
+        required: true
+        type: choice
+        options:
+          - Primeira API
+          - Segunda API
 
-        api_version:
-            description: "Versão da imagem (ex: 1.0.0)"
-            required: true
-            type: string
+      api_version:
+        description: "Versão da imagem (ex: 1.0.0)"
+        required: true
+        type: string
 
 jobs:
   validate_environment:
-    runs-on: [self-hosted, ubuntu-latest]
+    name: Validação de ambiente
+    runs-on: ubuntu-latest
     outputs:
       dotnet_project: ${{ env.DOTNET_PROJECT }}
       service_name: ${{ env.SERVICE_NAME }}
@@ -77,25 +78,26 @@ jobs:
           fi
 
   project_tests:
-      needs: validate_environment
-      runs-on: [self-hosted, ubuntu-latest]
-      env:
-        DOTNET_PROJECT: ${{ needs.validate_environment.outputs.dotnet_project }}
-      steps:
-        - name: Checkout Code
-          uses: actions/checkout@v4
+    name: Testes do projeto
+    needs: validate_environment
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_PROJECT: ${{ needs.validate_environment.outputs.dotnet_project }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-        - name: Build project
-          shell: bash
-          run: |
-            dotnet build ${{ env.DOTNET_PROJECT}}.csproj
+      - name: Build project
+        shell: bash
+        run: |
+          dotnet build ${{ env.DOTNET_PROJECT}}.csproj
 
-        - name: Unit Tests
-          shell: bash
-          run: |
-            dotnet test ${{ env.DOTNET_PROJECT}}.UnitTests --no-build
+      - name: Unit Tests
+        shell: bash
+        run: |
+          dotnet test ${{ env.DOTNET_PROJECT}}.UnitTests --no-build
 
-        - name: Integration Tests
-          shell: bash
-          run: |
-            dotnet test ${{ env.DOTNET_PROJECT}}.IntegrationTests --no-build
+      - name: Integration Tests
+        shell: bash
+        run: |
+          dotnet test ${{ env.DOTNET_PROJECT}}.IntegrationTests --no-build
