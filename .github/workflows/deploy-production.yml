@@ -18,7 +18,7 @@ on:
 
 jobs:
   validate_environment:
-    name: Validação de ambiente
+    name: Environment Validation
     runs-on: ubuntu-latest
     outputs:
       dotnet_project: ${{ env.DOTNET_PROJECT }}
@@ -36,15 +36,15 @@ jobs:
             exit 1
           fi
 
-      - name: Setup Environment Variables
+      - name: Setup Deployment Variables
         run: |
           SLUG="${{ inputs.api_selection }}"
 
 
           #Mapeamento: slug | ProjectName | ContainerName
           case $SLUG in
-            "Primeira API")     PROJ="PrimeiraAPI";     SVC="primeira-api" ;
-            "Segunda API")     PROJ="SegundaAPI";     SVC="segunda-api" ;
+            "Primeira API")     PROJ="PrimeiraAPI";     SVC="primeira-api" ;;
+            "Segunda API")     PROJ="SegundaAPI";     SVC="segunda-api" ;;
           esac
 
           echo "DOTNET_PROJECT=Pipeline.$PROJ" >> $GITHUB_ENV
@@ -78,7 +78,7 @@ jobs:
           fi
 
   project_tests:
-    name: Testes do projeto
+    name: Project compilation and tests
     needs: validate_environment
     runs-on: ubuntu-latest
     env:
