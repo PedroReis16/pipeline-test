@@ -14,6 +14,8 @@ jobs:
     outputs:
       unit_projects_json: ${{ steps.affected.outputs.unit_projects_json }}
       integration_projects_json: ${{ steps.affected.outputs.integration_projects_json }}
+      has_unit_tests: ${{ steps.affected.outputs.has_unit_tests }}
+      has_integration_tests: ${{ steps.affected.outputs.has_integration_tests }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -90,6 +92,9 @@ jobs:
 
           echo "unit_projects_json=$UNIT_JSON" >> "$GITHUB_OUTPUT"
           echo "integration_projects_json=$INTEGRATION_JSON" >> "$GITHUB_OUTPUT"
+          # Evita erro "Matrix vector does not contain any values" quando não há projetos afetados
+          [[ "$UNIT_JSON" != "[]" ]] && echo "has_unit_tests=true" >> "$GITHUB_OUTPUT" || echo "has_unit_tests=false" >> "$GITHUB_OUTPUT"
+          [[ "$INTEGRATION_JSON" != "[]" ]] && echo "has_integration_tests=true" >> "$GITHUB_OUTPUT" || echo "has_integration_tests=false" >> "$GITHUB_OUTPUT"
 
           echo "APIs afetadas: $(echo $AFFECTED_APIS | tr ' ' '\n' | sort -u | tr '\n' ' ')"
           echo "Projetos de teste unitário: $UNIT_PROJECTS"
@@ -98,6 +103,7 @@ jobs:
   unit-tests:
     name: Unit tests (${{ matrix.project }})
     needs: detect
+    if: needs.detect.outputs.has_unit_tests == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -120,6 +126,7 @@ jobs:
   integration-tests:
     name: Integration tests (${{ matrix.project }})
     needs: detect
+    if: needs.detect.outputs.has_integration_tests == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
