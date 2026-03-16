@@ -32,8 +32,8 @@ jobs:
 
       - name: Validate deployments details
         run: |
-          if [[ ${{ github.ref_name }} != "master" ]]; then
-            echo "Esse workflow deve ser executado apenas na branch master"
+          if [[ ${{ github.ref_name }} != "develop" ]]; then
+            echo "Esse workflow deve ser executado apenas na branch develop"
             exit 1
           fi
 
