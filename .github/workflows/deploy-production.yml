@@ -214,8 +214,8 @@ jobs:
             exit 1
           fi
 
-          # Extrair do cabeçalho da versão até antes da próxima versão
-          awk "/^# \*\*\[$version\]/{p=1; print; next} p{if(/^# \*\*\[/) exit; print}" "$changelog_path" > RELEASE_NOTES.md
+          # Extrair o conteúdo da versão (ignorando o cabeçalho) até antes da próxima versão
+          awk "/^# \*\*\[$version\]/{p=1; next} p{if(/^# \*\*\[/) exit; print}" "$changelog_path" > RELEASE_NOTES.md
 
           if [ ! -s RELEASE_NOTES.md ]; then
             echo "✗ Não foi possível extrair changelog para versão $version"
