@@ -115,9 +115,9 @@ jobs:
       - name: Unit Tests
         shell: bash
         run: |
-          dotnet test "./Tests/Unit/${DOTNET_PROJECT}.UnitTests/${DOTNET_PROJECT}.UnitTests.csproj" -c Release --no-build --no-restore
+          dotnet test "./Tests/Unit/${DOTNET_PROJECT}.UnitTests/${DOTNET_PROJECT}.UnitTests.csproj" -c Release  --no-restore
 
       - name: Integration Tests
         shell: bash
         run: |
-          dotnet test "./Tests/Integration/${DOTNET_PROJECT}.IntegrationTests/${DOTNET_PROJECT}.IntegrationTests.csproj" -c Release --no-build --no-restore
+          dotnet test "./Tests/Integration/${DOTNET_PROJECT}.IntegrationTests/${DOTNET_PROJECT}.IntegrationTests.csproj" -c Release  --no-restore
