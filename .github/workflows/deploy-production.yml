@@ -167,7 +167,7 @@ jobs:
           VERSION="${{ env.API_VERSION }}"
 
           # Tag com a versão do input (ex: 1.0.0)
-          IMAGE_FULL="$REGION.ocir.io/$NS/${{ env.IMAGE_NAME }}:$VERSION:${GITHUB_SHA:0:7}"
+          IMAGE_FULL="$REGION.ocir.io/$NS/${{ env.IMAGE_NAME }}:$VERSION-${{ github.sha }}"
           docker build -t "$IMAGE_FULL" -f "${{ env.DOCKERFILE_PATH }}" .
 
 
