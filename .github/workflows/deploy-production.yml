@@ -93,9 +93,9 @@ jobs:
       - name: Unit Tests
         shell: bash
         run: |
-          dotnet test ${{ env.DOTNET_PROJECT}}.UnitTests --no-build
+          dotnet test ./Tests/Unit/${{ env.DOTNET_PROJECT}}.UnitTests/ --no-build
 
       - name: Integration Tests
         shell: bash
         run: |
-          dotnet test ${{ env.DOTNET_PROJECT}}.IntegrationTests --no-build
+          dotnet test ./Tests/Integration/${{ env.DOTNET_PROJECT}}.IntegrationTests/ --no-build
