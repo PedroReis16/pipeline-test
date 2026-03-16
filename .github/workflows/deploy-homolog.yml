@@ -1,6 +1,6 @@
-name: Production Deploy
+name: Homolog Deploy
 
-run-name: "${{ inputs.api_selection }} - Build: v${{ inputs.api_version }}"
+run-name: "${{ inputs.api_selection }} - Build: Homolog"
 
 on:
   workflow_dispatch:
@@ -13,15 +13,12 @@ on:
           - Primeira API
           - Segunda API
 
-      api_version:
-        description: "Versão da imagem (ex: 1.0.0)"
-        required: true
-        type: string
-
 jobs:
   validate_environment:
     name: Environment Validation
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       dotnet_project: ${{ steps.deployment_vars.outputs.dotnet_project }}
       service_name: ${{ steps.deployment_vars.outputs.service_name }}
@@ -30,6 +27,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Validate deployments details
         run: |
@@ -66,41 +65,20 @@ jobs:
           echo "image_name=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
           echo "service_name=$SERVICE_NAME" >> "$GITHUB_OUTPUT"
 
-      - name: Validate Changelog text
+      - name: Remove existing homolog tag if present
         shell: bash
         run: |
-          version="${{ inputs.api_version }}"
-          
-
-          changelog_path="$DOTNET_PROJECT/CHANGELOG.md"
-
-          echo "Validando versão: $version no arquivo $changelog_path"
-
-           if [ ! -f "$changelog_path" ]; then
-             echo "✗ Arquivo $changelog_path não encontrado"
-             exit 1
-           fi
-
-          if grep -q "^# \*\*\[$version\]" "$changelog_path"; then
-            echo "✓ Versão $version encontrada no CHANGELOG"
+          HOMOLOG_TAG="${{ steps.deployment_vars.outputs.service_name }}@homolog"
+          echo "Verificando se a tag '$HOMOLOG_TAG' já existe no repositório..."
+          git fetch --tags --force
+          if git rev-parse "$HOMOLOG_TAG" >/dev/null 2>&1; then
+            echo "Removendo tag existente: $HOMOLOG_TAG"
+            git push origin ":refs/tags/$HOMOLOG_TAG"
+            echo "Tag removida com sucesso."
           else
-            echo "✗ Versão $version NÃO encontrada no CHANGELOG"
-            echo "Por favor, adicione a versão ao CHANGELOG do projeto antes de fazer o release"
-            exit 1
+            echo "Tag '$HOMOLOG_TAG' não encontrada. Nenhuma ação necessária."
           fi
 
-      - name: Validate release tag is unique
-        shell: bash
-        run: |
-          SERVICE_NAME="${{ steps.deployment_vars.outputs.service_name }}"
-          VERSION="${{ inputs.api_version }}"
-          TAG_NAME="${SERVICE_NAME}@${VERSION}"
-          echo "Verificando se a tag '$TAG_NAME' já existe no repositório..."
-          if git ls-remote --exit-code --tags origin "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
-            echo "✗ A tag '$TAG_NAME' já existe no repositório. Use uma versão diferente."
-            exit 1
-          fi
-          echo "✓ Tag '$TAG_NAME' está disponível"
 
   project_build:
     name: Project compilation and tests
@@ -136,45 +114,39 @@ jobs:
         shell: bash
         run: |
           dotnet test "./Tests/Integration/${DOTNET_PROJECT}.IntegrationTests/${DOTNET_PROJECT}.IntegrationTests.csproj" -c Release  --no-restore
-      
+
   deploy_production:
-    name: Deploy to Production
+    name: Deploy to Homolog
     needs: [project_build, validate_environment]
     runs-on: ubuntu-latest
     env:
       DOTNET_PROJECT: ${{ needs.validate_environment.outputs.dotnet_project }}
       IMAGE_NAME: ${{ needs.validate_environment.outputs.image_name }}
       DOCKERFILE_PATH: ${{ needs.validate_environment.outputs.dockerfile_path }}
-      API_VERSION: ${{ inputs.api_version }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-    #   - name: Login to OCIR
-    #     shell: bash
-    #     run: |
-    #       REGION="${{ secrets.OCI_REGION }}"
-    #       NS="${{ secrets.OCI_TENANCY_NAMESPACE }}"
-    #       USER="${{ secrets.OCI_USERNAME }}"
-    #       TOKEN="${{ secrets.OCI_AUTH_TOKEN }}"
-    #       echo "$TOKEN" | docker login "$REGION.ocir.io" \
-    #         --username "$USER" \
-    #         --password-stdin
-    
+      #   - name: Login to OCIR
+      #     shell: bash
+      #     run: |
+      #       REGION="${{ secrets.OCI_REGION }}"
+      #       NS="${{ secrets.OCI_TENANCY_NAMESPACE }}"
+      #       USER="${{ secrets.OCI_USERNAME }}"
+      #       TOKEN="${{ secrets.OCI_AUTH_TOKEN }}"
+      #       echo "$TOKEN" | docker login "$REGION.ocir.io" \
+      #         --username "$USER" \
+      #         --password-stdin
+
       - name: Build Docker Image
         shell: bash
         run: |
           REGION="${{ secrets.OCI_REGION }}"
           NS="${{ secrets.OCI_TENANCY_NAMESPACE }}"
-          VERSION="${{ env.API_VERSION }}"
           SHORT_SHA="${GITHUB_SHA:0:7}"
 
-          # Tag com a versão do input (ex: 1.0.0)
-          # IMAGE_FULL="$REGION.ocir.io/$NS/${{ env.IMAGE_NAME }}:$VERSION-$SHORT_SHA"
-          
-          IMAGE_FULL="${{ env.IMAGE_NAME }}:$VERSION-${{ github.sha }}"
+          IMAGE_FULL="${{ env.IMAGE_NAME }}:dev"
           docker build -t "$IMAGE_FULL" -f "${{ env.DOCKERFILE_PATH }}" .
-
 
     #   - name: Push Docker Image to Oracle
     #     shell: bash
@@ -187,8 +159,8 @@ jobs:
     #       docker push "$IMAGE_BASE:$VERSION"
     #       docker push "$IMAGE_BASE:latest"
 
-  repository_release:
-    name: Release Repository
+  repository_tag:
+    name: Create homolog tag
     runs-on: ubuntu-latest
     needs: [deploy_production, validate_environment]
     permissions:
@@ -196,40 +168,11 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Extract changelog for version
-        id: release_notes
-        shell: bash
-        run: |
-          version="${{ inputs.api_version }}"
-          changelog_path="${{ needs.validate_environment.outputs.dotnet_project }}/CHANGELOG.md"
-
-          echo "Extraindo changelog para versão: $version de $changelog_path"
-
-          if [ ! -f "$changelog_path" ]; then
-            echo "✗ Arquivo $changelog_path não encontrado"
-            exit 1
-          fi
-
-          # Extrair o conteúdo da versão (ignorando o cabeçalho) até antes da próxima versão
-          awk "/^# \*\*\[$version\]/{p=1; next} p{if(/^# \*\*\[/) exit; print}" "$changelog_path" > RELEASE_NOTES.md
-
-          if [ ! -s RELEASE_NOTES.md ]; then
-            echo "✗ Não foi possível extrair changelog para versão $version"
-            exit 1
-          fi
-
-          echo "✓ Changelog extraído:"
-          echo ""
-          cat RELEASE_NOTES.md
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.validate_environment.outputs.service_name }}@${{ inputs.api_version }}
-          body_path: ./RELEASE_NOTES.md
-          draft: false
-          generate_release_notes: false
-          skip_duplicate: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Create and push tag
+        run: |
+          TAG_NAME="${{ needs.validate_environment.outputs.service_name }}@homolog"
+          git tag "$TAG_NAME"
+          git push origin "$TAG_NAME"
