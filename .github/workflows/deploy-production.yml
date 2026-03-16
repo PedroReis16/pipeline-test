@@ -87,7 +87,7 @@ jobs:
             exit 1
           fi
 
-  project_tests:
+  project_build:
     name: Project compilation and tests
     needs: validate_environment
     runs-on: ubuntu-latest
@@ -121,3 +121,17 @@ jobs:
         shell: bash
         run: |
           dotnet test "./Tests/Integration/${DOTNET_PROJECT}.IntegrationTests/${DOTNET_PROJECT}.IntegrationTests.csproj" -c Release  --no-restore
+      
+  deploy_production:
+    name: Deploy to Production
+    needs: project_build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build Docker Image
+        shell: bash
+        run: |
+          docker build -t ${{ needs.validate_environment.outputs.image_name }}:${{ inputs.api_version }} -f ${{ needs.validate_environment.outputs.dockerfile_path }} .
+      

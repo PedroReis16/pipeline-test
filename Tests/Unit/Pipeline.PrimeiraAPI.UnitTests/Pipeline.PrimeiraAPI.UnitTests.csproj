@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Pipeline.RecebimentoAPI\Pipeline.RecebimentoAPI.csproj" />
+    <ProjectReference Include="..\..\..\Pipeline.PrimeiraAPI\Pipeline.PrimeiraAPI.csproj" />
   </ItemGroup>
 
 </Project>

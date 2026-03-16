@@ -1,4 +1,4 @@
-namespace Pipeline.RecebimentoAPI.IntegrationTests;
+namespace Pipeline.PrimeiraAPI.IntegrationTests;
 
 public class Class1
 {
