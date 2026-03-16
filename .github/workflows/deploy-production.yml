@@ -137,7 +137,7 @@ jobs:
       
   deploy_production:
     name: Deploy to Production
-    needs: project_build
+    needs: [project_build, validate_environment]
     runs-on: ubuntu-latest
     env:
       DOTNET_PROJECT: ${{ needs.validate_environment.outputs.dotnet_project }}
@@ -165,9 +165,10 @@ jobs:
           REGION="${{ secrets.OCI_REGION }}"
           NS="${{ secrets.OCI_TENANCY_NAMESPACE }}"
           VERSION="${{ env.API_VERSION }}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
 
           # Tag com a versão do input (ex: 1.0.0)
-          # IMAGE_FULL="$REGION.ocir.io/$NS/${{ env.IMAGE_NAME }}:$VERSION-${{ github.sha }}"
+          # IMAGE_FULL="$REGION.ocir.io/$NS/${{ env.IMAGE_NAME }}:$VERSION-$SHORT_SHA"
           
           IMAGE_FULL="${{ env.IMAGE_NAME }}:$VERSION-${{ github.sha }}"
           docker build -t "$IMAGE_FULL" -f "${{ env.DOCKERFILE_PATH }}" .
@@ -187,7 +188,7 @@ jobs:
   repository_release:
     name: Release Repository
     runs-on: ubuntu-latest
-    needs: deploy_production
+    needs: [deploy_production, validate_environment]
     permissions:
       contents: write
     steps:
