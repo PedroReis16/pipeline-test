@@ -1,0 +1,53 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "PrimeiraAPI",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build: PrimeiraAPI",
+            "program": "${workspaceFolder}/Pipeline.PrimeiraAPI/bin/Debug/net8.0/Pipeline.PrimeiraAPI.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/Pipeline.PrimeiraAPI",
+            "stopAtEntry": false,
+            "serverReadyAction": {
+                "action": "openExternally",
+                "pattern": "^\\s*Now listening on:\\s+(https?://\\S+)",
+                "uriFormat": "%s/recebimento-api/swagger"
+            },
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "ASPNETCORE_URLS": "http://localhost:8091;"
+            }
+        },
+        {
+            "name": "SegundaAPI",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build: SegundaAPI",
+            "program": "${workspaceFolder}/Pipeline.SegundaAPI/bin/Debug/net8.0/Pipeline.SegundaAPI.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/Pipeline.SegundaAPI",
+            "stopAtEntry": false,
+            "serverReadyAction": {
+                "action": "openExternally",
+                "pattern": "^\\s*Now listening on:\\s+(https?://\\S+)",
+                "uriFormat": "%s/envio-api/swagger"
+            },
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "ASPNETCORE_URLS": "http://localhost:8092;"
+            }
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Debug all APIs",
+            "configurations": [
+                "PrimeiraAPI",
+                "SegundaAPI"
+            ],
+            "stopAll": true
+        },
+    ]
+}

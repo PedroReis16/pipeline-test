@@ -1,0 +1,31 @@
+version: "3.8"
+services:
+  recebimento-imagens:
+    container_name: recebimento-imagens
+    build:
+      context: ../../
+      dockerfile: docker-compose/dockerfiles/recebimento-imagens-api.dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - "8091:8080"
+    env_file:
+      - default.env
+      - recebimento-imagens.env
+    labels:
+      - org.label-schema.group=pipeline
+      - "service_name=recebimento-imagens"
+      - traefik.http.routers.recebimento-imagens.rule=PathPrefix(`/recebimento-imagens`)
+      - traefik.http.services.recebimento-imagens.loadbalancer.server.port=8080
+      - traefik.http.middlewares.cors.headers.accesscontrolallowmethods=*
+      - traefik.http.middlewares.cors.headers.accessControlAllowHeaders=*
+      - traefik.http.middlewares.cors.headers.accesscontrolalloworiginlist=*
+      - traefik.http.middlewares.cors.headers.accesscontrolmaxage=100
+      - traefik.http.middlewares.cors.headers.addvaryheader=true
+      - traefik.http.routers.recebimento-imagens.middlewares=cors
+    volumes:
+      - ./pipeline:/pipeline
+    networks:
+      - pacs-network
+    restart: 

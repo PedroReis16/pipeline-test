@@ -1,0 +1,64 @@
+name: Production Deploy
+
+on:
+  workflow_dispatch:
+  inputs:
+    api_selection:
+      description: "Selecione a API"
+      required: true
+      type: choice
+      options:
+        - Recebimento API
+        - Envio API
+    api_version:
+      description: "Versão da imagem (ex: 1.0.0)"
+      required: true
+      type: string
+
+jobs:
+  validate_environment:
+    runs-on: [self-hosted, ubuntu-latest]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Environment Variables
+        run: |
+          SLUG="${{ inputs.api_selection }}"
+
+
+          #Mapeamento: slug | ProjectName | ContainerName
+          case $SLUG in
+            "Primeira API")     PROJ="PrimeiraAPI";     SVC="primeira-api" ;
+            "Segunda API")     PROJ="SegundaAPI";     SVC="segunda-api" ;
+          esac
+
+          echo "DOTNET_PROJECT=Pipeline.$PROJ" >> $GITHUB_ENV
+          echo "DOCKERFILE_PATH=./docker-compose/dockerfiles/$SVC.dockerfile" >> $GITHUB_ENV
+          echo "IMAGE_NAME=pipeline/$SVC-api" >> $GITHUB_ENV
+          echo "SERVICE_NAME=$SVC" >> $GITHUB_ENV
+
+      - name: Validate Changelog text
+        shell: bash
+        run: |
+          version="${{ github.ref_name }}"
+          if [[ $version == v* ]]; then
+            version="${version:1}"
+          fi
+
+          changelog_path="$DOTNET_PROJECT/CHANGELOG.md"
+
+          echo "Validando versão: $version no arquivo $changelog_path"
+
+           if [ ! -f "$changelog_path" ]; then
+             echo "✗ Arquivo $changelog_path não encontrado"
+             exit 1
+           fi
+
+          if grep -q "^# \*\*\[$version\]" "$changelog_path"; then
+            echo "✓ Versão $version encontrada no CHANGELOG"
+          else
+            echo "✗ Versão $version NÃO encontrada no CHANGELOG"
+            echo "Por favor, adicione a versão ao CHANGELOG do projeto antes de fazer o release"
+            exit 1
+          fi

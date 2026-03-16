@@ -1,0 +1,70 @@
+filebeat.inputs:
+  - type: filestream
+    id: docker-containers
+    paths:
+      - /var/lib/docker/containers/*/*.log
+
+    # Os logs do Docker geralmente são JSON (um JSON por linha)
+    parsers:
+      - ndjson:
+          add_error_key: true
+          overwrite_keys: true
+          expand_keys: true
+
+filebeat.autodiscover:
+  providers:
+    - type: docker
+      hints.enabled: true
+      templates:
+        - condition:
+            contains:
+              docker.container.labels.org.label-schema.group: "pipeline" 
+          config:
+            - type: filestream
+              id: "pipeline-${data.docker.container.id}"
+              paths:
+                - /var/lib/docker/containers/${data.docker.container.id}/*.log
+              
+              parsers:
+                - container:
+                    stream: all
+                    format: auto
+
+              processors:
+                - add_fields:
+                    target: container.labels
+                    fields:
+                      service_name: "${data.docker.container.labels.service_name}"
+
+                # Substituição das configurações json.* antigas pelo processador decode_json_fields
+                - decode_json_fields:
+                    fields: ["message"]
+                    target: ""
+                    overwrite_keys: true
+                    add_error_key: true
+
+processors:
+  - add_docker_metadata: ~
+  
+  - add_host_metadata: ~
+
+output.elasticsearch:
+  hosts: ["http://elasticsearch:9200"] 
+  username: elastic
+  password: admin
+  
+  index: "pipeline-%{[container.labels.service_name]}-%{+yyyy.MM.dd}"
+  
+  indices:
+    - index: "pipeline-%{[container.labels.service_name]}-%{+yyyy.MM.dd}"
+      when.has_fields: ['container.labels.service_name']
+
+setup.kibana:
+  host: "http://kibana:5601"
+
+setup.ilm.enabled: false
+setup.template.name: "pipeline"
+setup.template.pattern: "pipeline-*"
+setup.template.settings:
+  index.number_of_shards: 1
+
