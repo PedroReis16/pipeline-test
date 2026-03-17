@@ -1,7 +1,7 @@
 # Executa testes unitários e de integração apenas dos projetos afetados pela PR.
 # Roda somente em Pull Requests cuja base é a branch develop.
 # Testes unitários e de integração rodam em jobs paralelos para melhor tempo total.
-name: Run affected project tests
+name: Pull Request Tests
 
 on:
   pull_request:
@@ -10,7 +10,7 @@ on:
 jobs:
   detect:
     name: Detect affected projects
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     outputs:
       unit_projects_json: ${{ steps.affected.outputs.unit_projects_json }}
       integration_projects_json: ${{ steps.affected.outputs.integration_projects_json }}
@@ -30,31 +30,27 @@ jobs:
             list)
               echo "PrimeiraAPI"
               echo "SegundaAPI"
-              # echo "TerceiraAPI"
               ;;
           esac > api_list.txt
-          echo "Lista de APIs consideradas:"
+          echo "Lista de projetos considerados:"
           cat api_list.txt
 
       - name: Get changed files
         id: changed-files
         run: |
-          if git diff --name-only HEAD^1 HEAD > changed_files.txt 2>/dev/null; then
-            echo "Lista de arquivos obtida via HEAD^1..HEAD"
-          elif git diff --name-only origin/develop...HEAD > changed_files.txt 2>/dev/null; then
-            echo "Lista de arquivos obtida via origin/develop...HEAD"
-          else
-            echo "::error::Não foi possível obter a lista de arquivos alterados (git diff falhou). Verifique o fetch-depth e a base da PR."
-            exit 1
-          fi
+          CHANGED=$(git diff --name-only HEAD^1 HEAD 2>/dev/null || git diff --name-only origin/develop...HEAD 2>/dev/null)
+          echo "changed<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
           echo "Arquivos alterados na PR:"
-          cat changed_files.txt
+          echo "$CHANGED"
 
       - name: Detect affected APIs and build test project lists
         id: affected
         run: |
+          CHANGED="${{ steps.changed-files.outputs.changed }}"
           AFFECTED_APIS=""
-          # Lê arquivos alterados do arquivo gerado no step anterior (evita script injection)
+
           while IFS= read -r api; do
             [[ -z "$api" ]] && continue
             # Convenção: Pipeline.<Api>/, Tests/Unit/Pipeline.<Api>.UnitTests/, Tests/Integration/Pipeline.<Api>.IntegrationTests/
@@ -66,7 +62,7 @@ jobs:
                 AFFECTED_APIS="${AFFECTED_APIS}${api} "
                 break
               fi
-            done < changed_files.txt
+            done <<< "$CHANGED"
           done < api_list.txt
 
           UNIT_PROJECTS=""
@@ -107,7 +103,7 @@ jobs:
     name: Unit tests (${{ matrix.project }})
     needs: detect
     if: needs.detect.outputs.has_unit_tests == 'true'
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     strategy:
       fail-fast: false
       matrix:
@@ -122,17 +118,15 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Build and run unit tests
-        env:
-          PROJECT: ${{ matrix.project }}
         run: |
-          dotnet build "$PROJECT" --configuration Release --no-incremental
-          dotnet test "$PROJECT" --no-build --verbosity normal --configuration Release
+          dotnet build "${{ matrix.project }}" --configuration Release --no-incremental
+          dotnet test "${{ matrix.project }}" --no-build --verbosity normal --configuration Release
 
   integration-tests:
     name: Integration tests (${{ matrix.project }})
     needs: detect
     if: needs.detect.outputs.has_integration_tests == 'true'
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     strategy:
       fail-fast: false
       matrix:
@@ -147,8 +141,6 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Build and run integration tests
-        env:
-          PROJECT: ${{ matrix.project }}
         run: |
-          dotnet build "$PROJECT" --configuration Release --no-incremental
-          dotnet test "$PROJECT" --no-build --verbosity normal --configuration Release
+          dotnet build "${{ matrix.project }}" --configuration Release --no-incremental
+          dotnet test "${{ matrix.project }}" --no-build --verbosity normal --configuration Release
