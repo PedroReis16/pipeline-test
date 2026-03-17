@@ -10,7 +10,7 @@ on:
 jobs:
   detect:
     name: Detect affected projects
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       unit_projects_json: ${{ steps.affected.outputs.unit_projects_json }}
       integration_projects_json: ${{ steps.affected.outputs.integration_projects_json }}
@@ -103,7 +103,7 @@ jobs:
     name: Unit tests (${{ matrix.project }})
     needs: detect
     if: needs.detect.outputs.has_unit_tests == 'true'
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -126,7 +126,7 @@ jobs:
     name: Integration tests (${{ matrix.project }})
     needs: detect
     if: needs.detect.outputs.has_integration_tests == 'true'
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
